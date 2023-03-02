@@ -57,7 +57,7 @@ pub mod tut2 {
         let uri = get_string_from_buffer(&uri);
         let creators = Some(vec![Creator {
             address: user.key(),
-            share: 10,
+            share: 100,
             verified: true,
         }]);
 

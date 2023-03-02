@@ -111,12 +111,12 @@ describe("tut2", () => {
       mplId
     )[0]
 
-    await createToken();
+    // await createToken();
     const userAta = await _getOrCreateTokenAccount(provider.publicKey, tokenId);
 
     const name = parseStringToBuffer("Vi", 32);
     const symbol = parseStringToBuffer("VI", 32);
-    const uri = parseStringToBuffer("https://VI", 128);
+    const uri = parseStringToBuffer("https://gateway.pinata.cloud/ipfs/QmNfueQUuVT9CA6M2Nq6ouFJvWEgHHewBoRxJiffEs99u7", 128);
 
     let ix = await program.methods.createNft(name, symbol, uri).accounts({
       masterEditionAccount: master_edition_account,
@@ -134,7 +134,7 @@ describe("tut2", () => {
     const tx = new anchor.web3.Transaction();
     tx.add(...txis);
 
-    let res = await provider.sendAndConfirm(tx, [token_keypair])
+    let res = await provider.sendAndConfirm(tx)
     log('res: ', res);
 
   })
