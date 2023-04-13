@@ -1,3 +1,5 @@
+#![warn(unused)]
+
 use anchor_lang::prelude::*;
 use anchor_spl::token::{self, Mint, Token, TokenAccount};
 use mpl_token_metadata::instruction::{create_master_edition_v3, create_metadata_accounts_v3};
@@ -114,6 +116,31 @@ pub mod tut2 {
 
         Ok(())
     }
+
+
+    //---------------------------------------------- NFT BUY/SELL ----------------------------------------------------
+
+    pub fn init_main_account(_context: Context<AInitMainAccount>) -> Result<()>{
+        Ok(())
+    }
+
+    pub fn init_nft_info_account(_context: Context<AInitNftInfoAccount>) -> Result<()>{
+        Ok(())
+    }
+
+    pub fn sell_mint(context: Context<ASellMint>, price: u64)-> Result<()>{
+        let seller = context.accounts.seller.to_account_info();
+        let seller_ata = context.accounts.seller_ata.to_account_info();
+        let main_account_ata = context.accounts.main_account_ata.to_account_info();
+        let token_program = context.accounts.token_program.to_account_info();
+
+        Ok(())
+    }
+
+    pub fn buy_mint(context: Context<ABuyMint>)-> Result<()>{
+        Ok(())
+    }
+
 }
 
 #[derive(Accounts)]
@@ -169,4 +196,160 @@ pub struct ACreateNft<'info> {
 
     token_program: Program<'info, Token>,
     system_program: Program<'info, System>,
+}
+
+//---------------------------------------------- NFT BUY/SELL ----------------------------------------------------
+
+pub const SEED_STORE:&[u8] = b"store";
+///?NOTE: this store account is storing all nft information about which 
+///? we on store to buy/sell
+///* SEED = "store"
+#[account]
+pub struct StoreAccount{
+    total_nft:u64,
+}
+impl StoreAccount{
+    pub const MAX_SIZE: usize = std::mem::size_of::<Self>();
+}
+
+
+pub const SEED_STORE_MINT_INFO:&[u8] = b"info";
+///?NOTE: in this account we are storing single nft information which is 
+///? put on store to sell
+///* SEED = "info"
+#[account]
+pub struct MintInfo{
+    seller: Pubkey,
+    /// token id which we are going to put in store
+    token_id: Pubkey,
+    ///buyer can by the nft by giving the `price` amount of lamports 
+    price: u64, 
+    ///represant weather the nft in currently on store or not
+    is_in_sell:bool,
+}
+impl MintInfo{
+    pub const MAX_SIZE: usize = std::mem::size_of::<Self>();
+}
+
+#[derive(Accounts)]
+pub struct AInitMainAccount<'info>{
+    #[account(mut)]
+    pub owner: Signer<'info>,
+
+    #[account(
+        init,
+        payer = owner,
+        seeds = [SEED_STORE],
+        bump,
+        space = StoreAccount::MAX_SIZE,
+    )]
+    pub main_account: Account<'info, StoreAccount>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct AInitNftInfoAccount<'info>{
+    #[account(mut)]
+    pub user: Signer<'info>,
+
+    #[account()]
+    pub mint: Account<'info, Mint>,
+
+    #[account(
+        init,
+        payer = user,
+        seeds = [SEED_STORE_MINT_INFO, mint.key().as_ref()],
+        bump,
+        space = MintInfo::MAX_SIZE,
+    )]
+    pub mint_info: Account<'info, MintInfo>,
+
+    pub system_program: Program<'info, System>,
+}
+
+#[derive(Accounts)]
+pub struct ASellMint<'info>{
+    #[account()]
+    pub seller:Signer<'info>,
+
+    #[account()]
+    pub mint: Account<'info, Mint>,
+
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = seller,
+    )]
+    pub seller_ata: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        seeds = [SEED_STORE],
+        bump,
+    )]
+    pub main_account: Account<'info, StoreAccount>,
+
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = main_account,
+    )]
+    pub main_account_ata: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        seeds = [SEED_STORE_MINT_INFO, mint.key().as_ref()],
+        bump,
+    )]
+    pub mint_info: Account<'info, MintInfo>,
+
+    pub token_program: Program<'info, Token>,
+}
+
+#[derive(Accounts)]
+pub struct ABuyMint<'info>{
+    #[account()]
+    pub buyer:Signer<'info>,
+
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = buyer,
+    )]
+    pub buyer_ata: Account<'info, TokenAccount>,
+
+    ///CHECK:
+    #[account()]
+    pub mint: AccountInfo<'info>,
+
+    ///CHECK:
+    #[account(mut)]
+    pub seller:AccountInfo<'info>,
+
+    #[account(
+        mut,
+        seeds = [SEED_STORE],
+        bump,
+    )]
+    pub main_account: Account<'info, StoreAccount>,
+
+    #[account(
+        mut,
+        token::mint = mint,
+        token::authority = main_account,
+    )]
+    pub main_account_ata: Account<'info, TokenAccount>,
+
+    #[account(
+        mut,
+        seeds = [SEED_STORE_MINT_INFO, mint.key().as_ref()],
+        bump,
+        constraint = mint_info.seller == seller.key(),
+        constraint = mint_info.is_in_sell
+    )]
+    pub mint_info: Account<'info, MintInfo>,
+
+    pub token_program: Program<'info, Token>,
+    pub system_program: Program<'info, System>,
 }
